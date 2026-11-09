@@ -1,0 +1,368 @@
+import pypandoc
+from pathlib import Path
+
+content = r"""# Classificação de reclamações — App de delivery
+
+Material organizado a partir desta conversa, com as instruções de classificação e os exemplos de reclamações recebidos, acompanhados das respostas em JSON.
+
+## Instruções de classificação
+
+Você é analista de atendimento de um app de delivery de comida. Classifique cada reclamação de cliente em **uma única categoria**:
+
+- **entrega**: atraso, comida fria, entregador ou pedido que não chegou.
+- **pagamento**: cobrança errada, reembolso ou problema no cartão.
+- **pedido incorreto**: item faltando, item trocado ou pedido de outra pessoa.
+- **elogio**: feedback positivo, sem problema.
+- **outros**: o restante, por exemplo, problema técnico no aplicativo.
+
+Se houver mais de um assunto, escolha o problema principal.
+
+Formato obrigatório da resposta:
+
+```json
+{
+  "categoria": "...",
+  "urgencia": 1,
+  "resumo": "...",
+  "resposta_sugerida": "..."
+}
+```
+
+**Urgência:** `1` = baixa, `2` = média, `3` = alta. Cobrança indevida ou pedido que nunca chegou deve receber urgência 3.
+
+A resposta sugerida deve ter no máximo duas frases, ser educada e estar em português. As respostas abaixo foram mantidas conforme a conversa.
+
+---
+
+## Rodada 1 — Reclamações e classificações
+
+### 1. Reclamação
+> Meu pedido chegou frio e muito atrasado
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente relata que o pedido chegou muito atrasado e frio.",
+  "resposta_sugerida": "Sentimos muito pela demora e por você ter recebido a comida fria. Vamos verificar o ocorrido com a entrega e buscar uma solução para você."
+}
+```
+
+### 2. Reclamação
+> Cobraram duas vezes no meu cartão
+
+```json
+{
+  "categoria": "pagamento",
+  "urgencia": 3,
+  "resumo": "Cliente relata cobrança duplicada no cartão.",
+  "resposta_sugerida": "Lamentamos pela cobrança duplicada. Vamos verificar o ocorrido com urgência e providenciar o estorno do valor cobrado indevidamente."
+}
+```
+
+### 3. Reclamação
+> Veio faltando um item no pedido
+
+```json
+{
+  "categoria": "pedido incorreto",
+  "urgencia": 1,
+  "resumo": "Cliente recebeu o pedido com um item faltando.",
+  "resposta_sugerida": "Sentimos muito pelo item que não foi enviado. Vamos verificar o ocorrido com o restaurante e buscar uma solução para você."
+}
+```
+
+### 4. Reclamação
+> O entregador foi muito educado, parabéns
+
+```json
+{
+  "categoria": "elogio",
+  "urgencia": 1,
+  "resumo": "Cliente elogiou a educação e cordialidade do entregador.",
+  "resposta_sugerida": "Agradecemos muito pelo elogio! Vamos compartilhar seu reconhecimento com o entregador."
+}
+```
+
+### 5. Reclamação
+> Esperei mais de uma hora e ninguém avisou
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente aguardou mais de uma hora pelo pedido sem receber nenhuma atualização sobre o atraso.",
+  "resposta_sugerida": "Sentimos muito pela demora e pela falta de comunicação. Vamos verificar o ocorrido e buscar uma solução para você."
+}
+```
+
+### 6. Reclamação
+> A comida estava fria
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente relata que recebeu a comida fria.",
+  "resposta_sugerida": "Sentimos muito por você ter recebido a comida fria. Vamos verificar o ocorrido e buscar uma solução para melhorar sua experiência."
+}
+```
+
+### 7. Reclamação
+> Fui cobrado a mais e quero reembolso
+
+```json
+{
+  "categoria": "pagamento",
+  "urgencia": 3,
+  "resumo": "Cliente relata cobrança de valor superior ao devido e solicita reembolso.",
+  "resposta_sugerida": "Pedimos desculpas pela cobrança indevida. Vamos verificar o valor cobrado com urgência e providenciar o reembolso correspondente."
+}
+```
+
+### 8. Reclamação
+> Não veio o refrigerante que pedi
+
+```json
+{
+  "categoria": "pedido incorreto",
+  "urgencia": 1,
+  "resumo": "Cliente informa que o refrigerante solicitado não foi incluído no pedido.",
+  "resposta_sugerida": "Sentimos muito pela falta do refrigerante. Vamos verificar o ocorrido com o restaurante e buscar uma solução para você."
+}
+```
+
+### 9. Reclamação
+> Adorei o atendimento, obrigado!
+
+```json
+{
+  "categoria": "elogio",
+  "urgencia": 1,
+  "resumo": "Cliente demonstrou satisfação com o atendimento recebido.",
+  "resposta_sugerida": "Ficamos muito felizes com seu elogio! Agradecemos pela preferência e esperamos atendê-lo novamente."
+}
+```
+
+### 10. Reclamação
+> O aplicativo travou na hora de pagar
+
+```json
+{
+  "categoria": "outros",
+  "urgencia": 2,
+  "resumo": "Cliente relata que o aplicativo travou durante a etapa de pagamento.",
+  "resposta_sugerida": "Sentimos muito pelo transtorno. Vamos verificar o problema técnico para que você consiga finalizar seu pedido normalmente."
+}
+```
+
+### 11. Reclamação
+> O entregador atrasou, mas foi muito educado
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente relata atraso na entrega, mas elogia a educação do entregador.",
+  "resposta_sugerida": "Sentimos muito pelo atraso, mas ficamos felizes com seu elogio ao entregador. Vamos compartilhar seu feedback com a equipe."
+}
+```
+
+### 12. Reclamação
+> Paguei no cartão e o pedido nunca chegou
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 3,
+  "resumo": "Cliente pagou com cartão, mas informa que o pedido nunca foi entregue.",
+  "resposta_sugerida": "Pedimos sinceras desculpas pelo ocorrido. Vamos verificar a entrega imediatamente e providenciar uma solução, incluindo o reembolso se confirmado que o pedido não foi entregue."
+}
+```
+
+### 13. Reclamação
+> Recebi o pedido de outra pessoa
+
+```json
+{
+  "categoria": "pedido incorreto",
+  "urgencia": 2,
+  "resumo": "Cliente recebeu um pedido que pertencia a outra pessoa.",
+  "resposta_sugerida": "Sentimos muito pelo erro na entrega do seu pedido. Vamos verificar o ocorrido e buscar uma solução o mais rápido possível."
+}
+```
+
+### 14. Reclamação
+> Entrega rápida e comida ótima, parabéns
+
+```json
+{
+  "categoria": "elogio",
+  "urgencia": 1,
+  "resumo": "Cliente elogiou a rapidez da entrega e a qualidade da comida.",
+  "resposta_sugerida": "Agradecemos muito pelo elogio! Ficamos felizes que tenha tido uma ótima experiência e esperamos atendê-lo novamente."
+}
+```
+
+### 15. Reclamação
+> Demorou muito, mas chegou tudo certo
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente relata demora na entrega, mas confirma que recebeu todos os itens corretamente.",
+  "resposta_sugerida": "Pedimos desculpas pela demora na entrega. Ficamos felizes que seu pedido tenha chegado completo e vamos trabalhar para melhorar nosso prazo."
+}
+```
+
+---
+## Rodada 2 — Novas reclamações e classificações
+
+### 16. Reclamação
+> pedi pizza e veio hamburguer
+
+```json
+{
+  "categoria": "pedido incorreto",
+  "urgencia": 1,
+  "resumo": "Cliente solicitou uma pizza, mas recebeu um hambúrguer no lugar.",
+  "resposta_sugerida": "Sentimos muito pela troca do seu pedido. Vamos verificar o ocorrido com o restaurante e buscar uma solução o mais rápido possível."
+}
+```
+
+### 17. Reclamação
+> cade meu pedido??? ja faz 2h
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 3,
+  "resumo": "Cliente informa que está aguardando o pedido há duas horas e ainda não recebeu.",
+  "resposta_sugerida": "Pedimos sinceras desculpas pela demora. Vamos verificar imediatamente o status da entrega e buscar uma solução urgente para você."
+}
+```
+
+### 18. Reclamação
+> me cobraram taxa de entrega mas era frete gratis
+
+```json
+{
+  "categoria": "pagamento",
+  "urgencia": 3,
+  "resumo": "Cliente relata cobrança de taxa de entrega, mesmo tendo direito ao frete grátis.",
+  "resposta_sugerida": "Pedimos desculpas pela cobrança indevida. Vamos verificar o ocorrido e providenciar o reembolso da taxa de entrega cobrada incorretamente."
+}
+```
+
+### 19. Reclamação
+> O app fica fechando sozinho toda hora
+
+```json
+{
+  "categoria": "outros",
+  "urgencia": 2,
+  "resumo": "Cliente relata que o aplicativo está fechando sozinho repetidamente, indicando possível falha técnica.",
+  "resposta_sugerida": "Sentimos muito pelo transtorno. Vamos verificar o problema técnico para identificar a causa e melhorar o funcionamento do aplicativo."
+}
+```
+
+### 20. Reclamação
+> Parabéns, só 3 horas de espera, muito rápido
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente demonstra insatisfação de forma irônica com o atraso de três horas na entrega.",
+  "resposta_sugerida": "Pedimos desculpas pela demora excessiva. Entendemos sua insatisfação e vamos verificar o ocorrido para melhorar nosso prazo de entrega."
+}
+```
+
+### 21. Reclamação
+> Chegou tudo certo, mas o entregador foi grosseiro
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente recebeu todos os itens corretamente, mas relata comportamento grosseiro do entregador.",
+  "resposta_sugerida": "Sentimos muito pela experiência desagradável com o entregador. Vamos encaminhar seu relato à equipe responsável para que a situação seja avaliada."
+}
+```
+
+### 22. Reclamação
+> cobraram o pedido e cancelaram sem avisar
+
+```json
+{
+  "categoria": "pagamento",
+  "urgencia": 3,
+  "resumo": "Cliente relata que foi cobrado pelo pedido, mas o pedido foi cancelado sem aviso prévio.",
+  "resposta_sugerida": "Pedimos desculpas pelo ocorrido e pela falta de comunicação. Vamos verificar a cobrança e providenciar o reembolso do valor pago com urgência."
+}
+```
+
+### 23. Reclamação
+> Vem sem talher toda vez
+
+```json
+{
+  "categoria": "pedido incorreto",
+  "urgencia": 1,
+  "resumo": "Cliente relata que os pedidos chegam frequentemente sem talheres.",
+  "resposta_sugerida": "Pedimos desculpas pela falta de talheres. Vamos comunicar o restaurante sobre esse problema recorrente para evitar que aconteça novamente."
+}
+```
+
+### 24. Reclamação
+> Qual o horário de funcionamento do restaurante?
+
+```json
+{
+  "categoria": "outros",
+  "urgencia": 1,
+  "resumo": "Cliente solicita informações sobre o horário de funcionamento do restaurante.",
+  "resposta_sugerida": "Claro! Será um prazer ajudar. Você poderia informar o nome do restaurante para verificarmos os horários de funcionamento?"
+}
+```
+
+### 25. Reclamação
+> Entregaram no endereço errado
+
+```json
+{
+  "categoria": "entrega",
+  "urgencia": 2,
+  "resumo": "Cliente relata que o pedido foi entregue em um endereço diferente do informado.",
+  "resposta_sugerida": "Pedimos desculpas pelo erro na entrega. Vamos verificar imediatamente o ocorrido e buscar uma solução para que você receba seu pedido corretamente."
+}
+```
+
+---
+
+## Resumo das categorias
+
+| Categoria | Quando utilizar |
+|---|---|
+| entrega | Atraso, comida fria, problemas com entregador, pedido não recebido ou endereço de entrega errado. |
+| pagamento | Cobrança indevida, cobrança duplicada, taxa incorreta ou solicitação de reembolso. |
+| pedido incorreto | Item faltando, item trocado ou pedido de outra pessoa. |
+| elogio | Comentário positivo sem reclamação principal. |
+| outros | Dúvidas gerais e problemas técnicos que não se enquadram nas demais categorias. |
+
+## Observação
+
+As classificações e respostas foram organizadas conforme os exemplos desta conversa. Em casos com mais de um assunto, foi mantida a categoria considerada principal na resposta original.
+"""
+
+output_path = "/mnt/data/classificacao_reclamacoes_delivery_github.md"
+pypandoc.convert_text(
+    content,
+    "md",
+    format="md",
+    outputfile=output_path,
+    extra_args=["--standalone"]
+)
+
+print(f"Arquivo Markdown criado: {output_path}")
