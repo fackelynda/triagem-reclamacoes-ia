@@ -22,15 +22,41 @@ Equipes de atendimento recebem muitas reclamações e precisam separar, prioriza
 
 ![Cenário no Make](cenario-make.png)
 
+## Como montei no Make
+
+O Make (make.com) é uma ferramenta que liga aplicativos sem precisar programar. Eu montei um "cenário": uma fila de 3 módulos, em que a saída de um vira a entrada do próximo. Usei a conta gratuita.
+
+### Passo 1: preparar a planilha
+No Google Sheets, criei a aba "Página1" com as colunas **Reclamações**, **Categoria**, **Urgência**, **Resumo** e **Resposta sugerida**. Escrevi 15 reclamações fictícias na coluna A e deixei as outras colunas vazias. Elas são preenchidas pela automação.
+
+### Passo 2: conectar o Make ao Google
+No Make, criei um cenário novo e conectei minha conta Google, marcando todas as permissões pedidas (sem isso o Make não conseguiu ler a planilha).
+
+### Passo 3: os 3 módulos
+
+| Módulo | O que faz | O que entra | O que sai |
+|---|---|---|---|
+| **1. Google Sheets, Search Rows** | Procura na planilha as linhas que ainda não foram classificadas (Categoria vazia). Limite de 4 linhas por execução. | A planilha | Uma reclamação por vez, com o número da linha |
+| **2. Google Gemini AI, Generate a response** | Manda a reclamação para a IA. Em "System Instructions" vai o texto do `prompt_v2.txt`. Em "Messages" vai `Reclamação: ` seguido do texto da coluna A. A resposta é configurada como "JSON Output". | O texto da reclamação | Um JSON com categoria, urgência, resumo e resposta sugerida |
+| **3. Google Sheets, Update a Row** | Escreve cada campo do JSON na coluna certa, na mesma linha da reclamação. | O JSON e o número da linha | A linha preenchida na planilha |
+
+### Passo 4: como o fluxo roda
+Quando clico em **Run once**, o módulo 1 devolve até 4 linhas. Para **cada linha**, o Make roda os módulos 2 e 3 em sequência. No fim, a planilha mostra as linhas preenchidas. Depois espero 1 minuto e rodo de novo para as próximas, porque o plano gratuito do Gemini aceita só 5 pedidos por minuto e 20 por dia. Foram 3 execuções para as 15 reclamações.
+
+### Passo 5: conferir
+Comparei cada linha com o meu gabarito. Quando a IA errou (a frase sobre horário de funcionamento), melhorei o prompt (v1 para v2) e rodei de novo.
+
 ## Arquivos
 - `triagem.py`: versão inicial em Python, que classifica por palavras-chave. Serve como ponto de comparação.
 - `prompt_v1.txt` e `prompt_v2.txt`: as instruções dadas à IA, antes e depois da melhoria.
-- `resultados.md`: os testes feitos, com os números.
+- `testes-chatgpt.md` e `testes-gemini.md`: as 25 frases testadas em cada IA, com as respostas.
+- `resultados.md`: os números dos testes e a comparação de tempo.
+- `cenario-make.png` e `planilha-preenchida.png`: o fluxo no Make e a planilha com o resultado.
 
 ## Resultados
-Testei as mesmas frases com um script simples e com a IA.
+Testei as mesmas frases com um script simples e com a IA. As respostas de cada frase estão em [testes-chatgpt.md](testes-chatgpt.md) e [testes-gemini.md](testes-gemini.md).
 
-| Método | Acertos |
+| Método | Acertos (categoria) |
 | --- | --- |
 | Script com palavras-chave (15 frases) | 10 de 15 (66,7%) |
 | ChatGPT, 15 frases iniciais | 15 de 15 |
@@ -39,7 +65,7 @@ Testei as mesmas frases com um script simples e com a IA.
 | Gemini, 10 frases difíceis (prompt v1) | 9 de 10 |
 | Automação no Make (Gemini, prompt v2), 15 frases | 15 de 15 |
 
-O gabarito foi definido por mim, e algumas frases são ambíguas.
+Contei como acerto só a categoria. Urgência e resposta sugerida não entraram na conta, porque não defini um gabarito para elas. O gabarito foi definido por mim, e algumas frases são ambíguas.
 
 ### Três exemplos comparados
 | Tipo | Frase | Esperado | Script | IA |
@@ -51,24 +77,25 @@ O gabarito foi definido por mim, e algumas frases são ambíguas.
 O script erra quando a frase tem uma palavra-chave que engana ("cartão", "parabéns"). A IA entende o contexto, inclusive o sarcasmo do terceiro exemplo.
 
 ## Tempo
-Com a automação, 15 reclamações foram processadas em 101 segundos, em 3 execuções (cerca de 7 segundos cada).
+Comparei o tempo de tratar as mesmas 15 reclamações da planilha.
+
+- **À mão:** cerca de 2 minutos e 30 segundos por reclamação (cronometrado, só categoria e urgência), o que dá cerca de 37 minutos e 30 segundos para as 15.
+- **Com a automação:** 101 segundos para as 15, em 3 execuções (cerca de 7 segundos por reclamação), já incluindo também o resumo e a resposta sugerida.
+- Isso dá cerca de 22 vezes mais rápido no processamento. A comparação favorece o trabalho à mão, porque a automação fez mais (resumo e resposta) no tempo medido.
+- O tempo de montar o fluxo no Make (vários dias de testes e correções) não está incluído.
+- Com poucas reclamações, fazer à mão ainda compensa. O ganho aparece em grande volume.
 
 ## Problemas que encontrei e como resolvi
-| Problema | Causa | O que fiz |
-| --- | --- | --- |
-| Erro 403 ao conectar o Google Sheets no Make | A conexão foi criada sem todas as permissões | Refiz a conexão marcando todas as permissões |
-| O Gemini respondia com conselhos em vez de classificar | O prompt grande não chegava ao módulo | Troquei para o módulo com campo de instruções do sistema e conferi a entrada da execução |
-| Erro 404: modelo indisponível | O modelo deixou de estar disponível para contas novas | Troquei para um modelo mais recente |
-| Erro 503 | Alta demanda no Google | Esperei e rodei de novo |
-| O Gemini não classificou a pergunta "Qual o horário de funcionamento do restaurante?" | O prompt não dizia o que fazer com mensagens que não são reclamação | Criei o prompt v2: dúvidas viram "outros", sem fazer perguntas e sempre em JSON |
-| O JSON apareceu inteiro em todas as colunas numa linha | O Make não separou os campos naquela resposta | Ativei o Response Format como JSON Output |
-| Erro 429 (5 pedidos por minuto e 20 por dia) | Limites do plano gratuito do Gemini | Processei em lotes de 3 a 4 linhas, esperando 1 minuto entre eles |
-
-## Tempo
-- **À mão:** 20 minutos para 20 reclamações (categoria), cerca de 1 minuto por reclamação.
-- **Com a automação:** 101 segundos para 15 reclamações, em 3 execuções, cerca de 7 segundos por reclamação.
-- A automação foi cerca de 9 vezes mais rápida no processamento. O tempo de montar o fluxo não está incluído.
-- Com poucas reclamações, fazer à mão ainda compensa. O ganho aparece em grande volume.
+| Problema | O que aconteceu | Como resolvi |
+|---|---|---|
+| Erro 403 na planilha | O Make não tinha permissão para ler a planilha | Refiz a conexão marcando todas as permissões do Google |
+| Erro 404 no Gemini | O modelo que eu usava deixou de existir | Troquei por um modelo atual (gemini-3.6-flash) |
+| Prompt não chegava ao Gemini | O módulo simples mandava só a frase da reclamação | Passei a usar "Generate a response", com System Instructions |
+| JSON inteiro numa célula só | A resposta vinha em texto corrido | Configurei "Response Format: JSON Output" |
+| Dados nas colunas erradas | Eu tinha colocado todos os campos em todas as colunas | Mapeei um campo por coluna e o número da linha no Row number |
+| Erro 429 (limite) | O plano gratuito permite 5 pedidos por minuto e 20 por dia | Rodei em lotes de 3 a 4 linhas, filtrando as já preenchidas |
+| Erro 503 | O Gemini estava sobrecarregado | Esperei e rodei de novo |
+| Frase que não era reclamação | O Gemini fez uma pergunta e respondeu fora do formato JSON | Criei o prompt v2 com a regra "outros" e a proibição de perguntas |
 
 ## O que aprendi
 - Medir antes de automatizar: comparar com um script simples mostrou o que a IA realmente melhora.
@@ -89,3 +116,4 @@ Usei ChatGPT e Gemini como apoio para escrever e revisar o prompt e o código. E
 - Limitar as categorias com um esquema de resposta (Response Schema).
 - Processar só as linhas novas e com intervalo automático entre as chamadas.
 - Testar com mais frases e com um segundo avaliador para o gabarito.
+
